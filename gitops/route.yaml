@@ -10,7 +10,5 @@ spec:
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
-    destinationCACertificate: ''
   port:
     targetPort: 8080
-  alternateBackends: []
