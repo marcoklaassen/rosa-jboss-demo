@@ -1,0 +1,3 @@
+FROM registry.redhat.io/jboss-eap-7/eap74-openjdk11-openshift-rhel8:latest
+
+COPY hello-world-app/target/jboss-hello.war /opt/eap/standalone/deployments/jboss-hello.war
