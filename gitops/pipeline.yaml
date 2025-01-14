@@ -3,73 +3,111 @@ kind: Pipeline
 metadata:
   name: jboss-eap-pipeline
 spec:
-  workspaces:
-    - name: shared-workspace
-    - name: maven-settings
-  params:
-    - description: url of the git repo for the code of deployment
-      name: git-url
-      type: string
-      default: https://github.com/marcoklaassen/rosa-jboss-demo.git
-    - description: revision to be used from repo of the code for deployment
-      name: git-revision
-      type: string
-      default: main
-    - description: image to be built from the code
-      name: IMAGE
-      type: string
-      default: image-registry.openshift-image-registry.svc:5000/rosa-jboss/rosa-jboss-demo:latest
-    - description: dockerfile location
-      name: DOCKERFILE
-      type: string
-      default: hello-world-app/src/main/docker/Containerfile.eap
   tasks:
-    - name: fetch-repository
+    - name: git-clone
       params:
-        - name: url
-          value: $(params.git-url)
-        - name: subdirectory
+        - name: CRT_FILENAME
+          value: ca-bundle.crt
+        - name: HTTP_PROXY
           value: ''
-        - name: deleteExisting
+        - name: HTTPS_PROXY
+          value: ''
+        - name: NO_PROXY
+          value: ''
+        - name: SUBDIRECTORY
+          value: ''
+        - name: USER_HOME
+          value: /home/git
+        - name: DELETE_EXISTING
           value: 'true'
-        - name: revision
-          value: $(params.git-revision)
+        - name: VERBOSE
+          value: 'false'
+        - name: SSL_VERIFY
+          value: 'true'
+        - name: URL
+          value: 'https://github.com/marcoklaassen/rosa-jboss-demo.git'
+        - name: REVISION
+          value: main
+        - name: REFSPEC
+          value: ''
+        - name: SUBMODULES
+          value: 'true'
+        - name: DEPTH
+          value: '1'
+        - name: SPARSE_CHECKOUT_DIRECTORIES
+          value: ''
       taskRef:
-        kind: ClusterTask
-        name: git-clone
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: git-clone
+          - name: namespace
+            value: openshift-pipelines
+        resolver: cluster
       workspaces:
         - name: output
-          workspace: shared-workspace
-    - name: build-artifact
-      runAfter:
-        - fetch-repository
-      taskRef:
-        kind: ClusterTask
-        name: maven
+          workspace: source
+    - name: maven
       params:
-        - name: CONTEXT_DIR
-          value: ./hello-world-app
-        - name: MAVEN_IMAGE
-          value: registry.redhat.io/ubi8/openjdk-17@sha256:e8cc2e476282b75d89c73057bfa713db22d72bdb2808d62d981a84c33beb2575
         - name: GOALS
           value:
-            - package            
+            - package
+        - name: MAVEN_MIRROR_URL
+          value: ''
+        - name: SUBDIRECTORY
+          value: ./hello-world-app
+      runAfter:
+        - git-clone
+      taskRef:
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: maven
+          - name: namespace
+            value: openshift-pipelines
+        resolver: cluster
       workspaces:
         - name: source
-          workspace: shared-workspace
-        - name: maven-settings
-          workspace: maven-settings
-    - name: build-image
+          workspace: source
+    - name: buildah
       params:
         - name: IMAGE
-          value: $(params.IMAGE)
+          value: 'image-registry.openshift-image-registry.svc:5000/rosa-jboss/rosa-jboss-demo:latest'
         - name: DOCKERFILE
-          value: $(params.DOCKERFILE)
+          value: hello-world-app/src/main/docker/Containerfile.eap
+        - name: BUILD_ARGS
+          value: []
+        - name: CONTEXT
+          value: .
+        - name: STORAGE_DRIVER
+          value: vfs
+        - name: FORMAT
+          value: oci
+        - name: BUILD_EXTRA_ARGS
+          value: ''
+        - name: PUSH_EXTRA_ARGS
+          value: ''
+        - name: SKIP_PUSH
+          value: 'false'
+        - name: TLS_VERIFY
+          value: 'true'
+        - name: VERBOSE
+          value: 'false'
       runAfter:
-        - build-artifact
+        - maven
       taskRef:
-        kind: ClusterTask
-        name: buildah
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: buildah
+          - name: namespace
+            value: openshift-pipelines
+        resolver: cluster
       workspaces:
         - name: source
-          workspace: shared-workspace
+          workspace: source
+  workspaces:
+    - name: source
